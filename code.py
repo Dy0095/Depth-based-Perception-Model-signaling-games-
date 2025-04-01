@@ -1,4 +1,4 @@
-# Main part of the depth-based perception model
+# Main part of the cost-based perception model
 # to adjust the frequencies of states, see generate_state.py and change FrequencyA, MutantA and MutantB
 # to adjust the payoff matrix, see function payoff(state, action)
 # to adjust the cost function, see function cost_perception(m)
@@ -36,22 +36,23 @@ def generate_state():
                 i_state += 1
 
 
-perception_depth_weight_urn = [1, 1, 1]
-# urn for choosing which depth, in our model we just let the initial weight of every depth be 1 for simplicity
+perception_resolution_weight_urn = [1, 1, 1]
+# urn for choosing which resolution level
+# in our model we just let the initial weight of every resolution level be 1 for simplicity
 # the mechanism of inventing new signals introduced in Skyrms(2010) can also be applied here
 i = 1
-PerceivedState = []     # current perceived state up to the chosen depth
+PerceivedState = []     # current perceived state up to the chosen resolution level
 perceived_state_memory = []     # perceived states that the organism has stored
 perceived_state_urn = []
 # combination of all perceived state urns, each contains the weights of four internal signals
 signal_urn = [[1, 1], [1, 1], [1, 1], [1, 1]]
 # combination of all four internal signal urns, each contains the weights of two actions
 state_type = [[1, 3, 5], [1, 3, 7], [2, 3, 5], [2, 4, 5]]       # represent X1 X2 Y1 Y2 respectively
-action_type = [1, 2]    # represent eat or ignore
+action_type = [1, 2]    # represent eating or nest-building
 total_payoff = 0    # accumulated net payoff
 total_payoff_record = []    # used for plot
-perception_depth_weight_record = [[],[],[]]     # used for plot
-perception_depth_weight_percent_record = [[],[],[]]     # used for plot
+perception_resolution_weight_record = [[],[],[]]     # used for plot
+perception_resolution_weight_percent_record = [[],[],[]]     # used for plot
 
 
 # to make sure the ball in the urn will not be smaller than 1 when punishment is permitted
@@ -62,27 +63,27 @@ def one_plus(m, y):
         return 1
 
 
-def payoff(state, action):      # payoff matrix, X1,X2,Y1,Y2 corresponds to 0、1、2、3，ingest、avoid with 0,1
+def payoff(state, action):      # payoff matrix, X1,X2,Y1,Y2 corresponds to 0、1、2、3，eating、nest-building with 0,1
     if state == 0:
         if action == 0:
-            return 3    # X1, eat
+            return 3    # X1, eating
         else:
-            return -2   # X1, ignore
+            return -2   # X1, nest-building
     elif state == 1:
         if action == 0:
-            return -1   # X2, eat
+            return -1   # X2, eating
         else:
-            return 2    # X2, ignore
+            return 2    # X2, nest-building
     elif state == 2:
         if action == 0:
-            return -2   # Y1, eat
+            return -2   # Y1, eating
         else:
-            return 3    # Y1, ignore
+            return 3    # Y1, nest-building
     else:
         if action == 0:
-            return 2    # Y2, eat
+            return 2    # Y2, eating
         else:
-            return -1   # Y2, eat
+            return -1   # Y2, nest-building
 # origin:       3 -2 -1 2 -2 3 2 -1
 # 2-partition:  3 -2 -1 1 -2 3 0 -1
 # 3-partition:  1.5 -1 -1 0 -3.5 3 3 -3.5
@@ -100,23 +101,23 @@ def cost_perception(m):         # cost function
 def execute_signaling():    # represent 1 simulation
     global i
     while i <= StateNumber:
-        depth_based_signaling()
+        cost_based_signaling()
 
 
-def depth_based_signaling():    # choose depth
+def cost_based_signaling():    # choose resolution level
     global i, PerceivedState
-    if random.random() < perception_depth_weight_urn[0] / (sum(perception_depth_weight_urn[:])):  # depth 1
-        PerceivedState = [State[i - 1][0]]  # perceive the external state up to the chosen depth
-        signal_in_depth(1)  # execute the previous part with depth 1
-    elif random.random() < perception_depth_weight_urn[1] / (sum(perception_depth_weight_urn[:])):  # depth 2
+    if random.random() < perception_resolution_weight_urn[0] / (sum(perception_resolution_weight_urn[:])):  # resolution level 1
+        PerceivedState = [State[i - 1][0]]  # perceive the external state up to the chosen resolution level
+        signal_in_resolution(1)  # execute the previous part with resolution level 1
+    elif random.random() < perception_resolution_weight_urn[1] / (sum(perception_resolution_weight_urn[:])):  # resolution level 2
         PerceivedState = [State[i - 1][0], State[i - 1][1]]
-        signal_in_depth(2)
-    else:  # depth 3
+        signal_in_resolution(2)
+    else:  # resolution level 3
         PerceivedState = [State[i - 1][0], State[i - 1][1], State[i - 1][2]]
-        signal_in_depth(3)
+        signal_in_resolution(3)
 
 
-def signal_in_depth(x):         # after decide a perceptual depth
+def signal_in_resolution(x):         # after decide a perceptual resolution level
     global perceived_state_memory, perceived_state_urn, i, j, total_payoff, total_payoff_record
     if perceived_state_memory.count(PerceivedState) == 0:  # if that perceived state has not been stored in memory
         perceived_state_memory += [PerceivedState]  # record that perceived state in memory
@@ -143,19 +144,19 @@ def signal_in_depth(x):         # after decide a perceptual depth
             d += 1
         urn_action_probability.append(q)
         urn_action_probability = sorted(urn_action_probability)
-        ac = urn_action_probability.index(q) -1      # represent which action the organism choose，0 for eat，1 for ignore
+        ac = urn_action_probability.index(q) -1      # represent which action the organism choose，0 for eating，1 for nest-building
         st = State[i - 1]
         # the following part is to adjust the weights in the corresponding urns and record other value
         signal_urn[sg][ac] = one_plus(signal_urn[sg][ac], payoff(state_type.index(st), ac) - cost_perception(x))
         perceived_state_urn[j][sg] = one_plus(perceived_state_urn[j][sg], payoff(state_type.index(st), ac) - cost_perception(x))
-        perception_depth_weight_urn[x - 1] = one_plus(perception_depth_weight_urn[x - 1], payoff(state_type.index(st), ac) - cost_perception(x))
+        perception_resolution_weight_urn[x - 1] = one_plus(perception_resolution_weight_urn[x - 1], payoff(state_type.index(st), ac) - cost_perception(x))
         total_payoff += payoff(state_type.index(st), ac) - cost_perception(x)
         total_payoff_record += [total_payoff]
         z0 = 0
-        for z in perception_depth_weight_urn:
-            percent0 = 100 * z/(sum(perception_depth_weight_urn[:]))
-            perception_depth_weight_record[z0] += [z]
-            perception_depth_weight_percent_record[z0] += [percent0]
+        for z in perception_resolution_weight_urn:
+            percent0 = 100 * z/(sum(perception_resolution_weight_urn[:]))
+            perception_resolution_weight_record[z0] += [z]
+            perception_resolution_weight_percent_record[z0] += [percent0]
             z0 += 1
         i += 1
     else:  # if that perceived state has been stored in memory
@@ -182,14 +183,14 @@ def signal_in_depth(x):         # after decide a perceptual depth
         st = State[i - 1]
         signal_urn[sg][ac] = one_plus(signal_urn[sg][ac], payoff(state_type.index(st), ac) - cost_perception(x))
         perceived_state_urn[j][sg] = one_plus(perceived_state_urn[j][sg], payoff(state_type.index(st), ac) - cost_perception(x))
-        perception_depth_weight_urn[x - 1] = one_plus(perception_depth_weight_urn[x - 1], payoff(state_type.index(st), ac) - cost_perception(x))
+        perception_resolution_weight_urn[x - 1] = one_plus(perception_resolution_weight_urn[x - 1], payoff(state_type.index(st), ac) - cost_perception(x))
         total_payoff += payoff(state_type.index(st), ac) - cost_perception(x)
         total_payoff_record += [total_payoff]
         z0 = 0
-        for z in perception_depth_weight_urn:
-            percent0 = 100 * z/(sum(perception_depth_weight_urn[:]))
-            perception_depth_weight_record[z0] += [z]
-            perception_depth_weight_percent_record[z0] += [percent0]
+        for z in perception_resolution_weight_urn:
+            percent0 = 100 * z/(sum(perception_resolution_weight_urn[:]))
+            perception_resolution_weight_record[z0] += [z]
+            perception_resolution_weight_percent_record[z0] += [percent0]
             z0 += 1
         i += 1
 
@@ -203,30 +204,30 @@ figure_save_path = 'figure'    # path of the outputs
 # same for the name of excel
 x_loc = 1
 wb = xlsxwriter.Workbook('data.xlsx')     # excel for recording the data in the simulation
-ws = wb.add_worksheet('depth-based perception model')
+ws = wb.add_worksheet('cost-based perception model')
 for s in range(r):
-    name_list += ['depth-based perception model' + str(s+1)]
+    name_list += ['cost-based perception model' + str(s+1)]
 
 
-def iter_depth_based_signaling():       # run simulation for r times
-    global i_state, q, r, x_loc, iter_payoff_record, perception_depth_weight_urn, PerceivedState, perceived_state_memory, perceived_state_urn, signal_urn, total_payoff, total_payoff_record, perception_depth_weight_record, i, perception_depth_weight_percent_record
+def iter_cost_based_signaling():       # run simulation for r times
+    global i_state, q, r, x_loc, iter_payoff_record, perception_resolution_weight_urn, PerceivedState, perceived_state_memory, perceived_state_urn, signal_urn, total_payoff, total_payoff_record, perception_resolution_weight_record, i, perception_resolution_weight_percent_record
     while q <= r:
         i_state = 1
         generate_state()
         # to reset all data
-        perception_depth_weight_urn = [1, 1, 1]
+        perception_resolution_weight_urn = [1, 1, 1]
         PerceivedState = []
         perceived_state_memory = []
         perceived_state_urn = []
         signal_urn = [[1, 1], [1, 1], [1, 1], [1, 1]]
         total_payoff = 0
         total_payoff_record = []
-        perception_depth_weight_record = [[], [], []]
-        perception_depth_weight_percent_record = [[], [], []]
+        perception_resolution_weight_record = [[], [], []]
+        perception_resolution_weight_percent_record = [[], [], []]
         i = 1
         execute_signaling()
-        for wt in range(len(perception_depth_weight_urn)):
-            ws.write(x_loc,wt,perception_depth_weight_urn[wt])
+        for wt in range(len(perception_resolution_weight_urn)):
+            ws.write(x_loc,wt,perception_resolution_weight_urn[wt])
         x_loc += 1
 
         '''
@@ -237,8 +238,8 @@ def iter_depth_based_signaling():       # run simulation for r times
             ws.write(x_loc+2,wt,perceived_state_urn[wt][1])
             ws.write(x_loc+3,wt,perceived_state_urn[wt][2])
             ws.write(x_loc+4,wt,perceived_state_urn[wt][3])
-        for wt in range(len(perception_depth_weight_urn)):
-            ws.write(x_loc+5,wt,perception_depth_weight_urn[wt])
+        for wt in range(len(perception_resolution_weight_urn)):
+            ws.write(x_loc+5,wt,perception_resolution_weight_urn[wt])
         x_loc += 6
         for wt in range(len(signal_urn)):
             ws.write(x_loc, wt, signal_urn[wt][0])
@@ -252,7 +253,7 @@ def iter_depth_based_signaling():       # run simulation for r times
         plt.plot(total_payoff_record)
         plt.ylabel('total payoff')
         plt.subplot(122)
-        plt.plot(range(1000), perception_depth_weight_percent_record[0], 'r-', range(1000), perception_depth_weight_percent_record[1], 'b-', range(1000), perception_depth_weight_percent_record[2], 'y-')
+        plt.plot(range(1000), perception_resolution_weight_percent_record[0], 'r-', range(1000), perception_resolution_weight_percent_record[1], 'b-', range(1000), perception_resolution_weight_percent_record[2], 'y-')
         plt.ylabel('Relative Weight')
         plt.xlabel('Step')
         plt.savefig(os.path.join(figure_save_path,name_list[q-1]))
@@ -261,7 +262,7 @@ def iter_depth_based_signaling():       # run simulation for r times
         q += 1
 
 
-iter_depth_based_signaling()
+iter_cost_based_signaling()
 wb.close()
 # to plot the median accumulated net payoff
 median_payoff_record = []
